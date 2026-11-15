@@ -12,6 +12,10 @@ jobs:
           ls -la
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
+      - name: Make icon
+        run: |
+          pip install pillow
+          python make_icon.py
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "17" }
       - uses: subosito/flutter-action@v2
@@ -32,6 +36,11 @@ jobs:
           ls -la
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
+      - name: Make icon
+        shell: bash
+        run: |
+          pip install pillow
+          python make_icon.py
       - uses: subosito/flutter-action@v2
         with: { channel: stable }
       - run: pip install flet==1.1.2
