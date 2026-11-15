@@ -1,11 +1,12 @@
 [project]
 name = "agram"
-version = "0.2.0"
-description = "AGRAM social app"
-requires-python = ">=3.10"
-dependencies = ["flet==1.1.2", "certifi"]
+version = "1.0.0"
+description = "AGRAM App"
+requires-python = ">=3.9"
+dependencies = [
+    "flet"
+]
 
 [tool.flet]
-org = "com.agram"
+org = "com.argroups.agram"
 product = "AGRAM"
-company = "AGRAM"
