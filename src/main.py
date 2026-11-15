@@ -432,91 +432,147 @@ async def main(page: ft.Page):
             spacing=0, expand=True, scroll=ft.ScrollMode.AUTO))
 
     # ------------------------------------------------------------------ profile
-    async def show_profile(user_id):
-        set_body(loading())
-        is_me = user_id == api.uid
-        own_tab = is_me and state["tab"] == 3
+  async def show_profile(user_id):
+    set_body(loading())
+    is_me = user_id == api.uid
+    own_tab = is_me and state["tab"] == 0
 
-        async def retry():
+    async def retry():
+        await show_profile(user_id)
+
+    try:
+        prof, posts, followers, following, followed = await asyncio.gather(
+            api.profile(user_id),
+            api.user_posts(user_id),
+            api.follower_count(user_id),
+            api.following_count(user_id),
+            api.is_following(user_id) if not is_me else asyncio.sleep(0, result=False),
+        )
+    except Exception as ex:
+        set_body(error_view(ex, retry))
+        return
+
+    if not prof:
+        set_body(error_view("Profile nahi mili.", retry))
+        return
+
+    name = prof.get("username") or "user"
+    bio = prof.get("bio") or ""
+
+    def stat(n, label):
+        return ft.Column(
+            controls=[
+                ft.Text(str(n), weight=ft.FontWeight.BOLD, size=16),
+                ft.Text(label, color=MUTED, size=12),
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=0,
+        )
+
+    header = [
+        ft.Row(
+            controls=[
+                avatar(name, 28),
+                stat(len(posts), "Posts"),
+                stat(followers, "Followers"),
+                stat(following, "Following"),
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_AROUND,
+        ),
+        ft.Text(name, weight=ft.FontWeight.BOLD, size=16),
+    ]
+    if bio:
+        header.append(ft.Text(bio, color=MUTED))
+
+    if not is_me:
+        async def toggle_follow(e):
+            try:
+                if followed:
+                    await api.unfollow(user_id)
+                else:
+                    await api.follow(user_id)
+            except Exception as ex:
+                await toast(ex)
+                return
             await show_profile(user_id)
 
-        try:
-            async def not_following():
-                return False
-            prof, posts, followers, following, followed = await asyncio.gather(
-                api.profile(user_id), api.user_posts(user_id),
-                api.follower_count(user_id), api.following_count(user_id),
-                not_following() if is_me else api.is_following(user_id))
-        except Exception as ex:
-            set_body(error_view(ex, retry))
-            return
-        if not prof:
-            set_body(error_view("Profile nahi mili", retry))
-            return
+        header.append(
+            primary("Unfollow" if followed else "Follow", toggle_follow, solid=not followed)
+        )
 
-        name = prof.get("username") or "user"
-        bio = (prof.get("bio") or "").strip()
-        def stat(n, label):
-            return ft.Column(controls=[ft.Text(str(n), size=18, weight=ft.FontWeight.BOLD),
-                                       ft.Text(label, size=12, color=MUTED)],
-                             horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0)
-        header = [
-            ft.Row(controls=[avatar(name, 38), stat(len(posts), "posts"),
-                             stat(followers, "followers"), stat(following, "following")],
-                   alignment=ft.MainAxisAlignment.SPACE_AROUND),
-        ]
-        if bio:
-            header.append(ft.Text(bio))
+    if own_tab:
+        async def do_logout(e):
+            await logout_ui()
 
-        if not is_me:
-            async def toggle_follow(e):
+        async def ask_delete(e):
+            async def cancel(e2):
+                await maybe(page.pop_dialog())
+
+            async def yes(e2):
+                await maybe(page.pop_dialog())
                 try:
-                    if followed:
-                        await api.unfollow(user_id)
-                    else:
-                        await api.follow(user_id)
+                    await api.delete_account()
                 except Exception as ex:
                     await toast(ex)
                     return
-                await show_profile(user_id)
-            header.append(primary("Unfollow" if followed else "Follow", toggle_follow, solid=not followed))
-
-        if own_tab:
-            async def do_logout(e):
                 await logout_ui()
 
-            async def ask_delete(e):
-                async def cancel(e2):
-                    await maybe(page.pop_dialog())
+            await maybe(
+                page.show_dialog(
+                    ft.AlertDialog(
+                        modal=True,
+                        title=ft.Text("Account delete karen?"),
+                        content=ft.Text(
+                            "Aapki profile, posts, likes aur comments hamesha ke liye delete ho jayenge."
+                        ),
+                        actions=[
+                            ft.TextButton("Cancel", on_click=cancel),
+                            ft.TextButton("Delete", on_click=yes),
+                        ],
+                    )
+                )
+            )
 
-                async def yes(e2):
-                    await maybe(page.pop_dialog())
-                    try:
-                        await api.delete_account()
-                    except Exception as ex:
-                        await toast(ex)
-                        return
-                    await logout_ui()
+        header.append(
+            ft.Row(
+                controls=[
+                    ft.TextButton("Log out", on_click=do_logout),
+                    ft.TextButton("Account delete karen", on_click=ask_delete),
+                ]
+            )
+        )
 
-                await maybe(page.show_dialog(ft.AlertDialog(
-                    modal=True,
-                    title=ft.Text("Account delete karen?"),
-                    content=ft.Text("Aapki profile, posts, likes aur comments hamesha ke liye mit jayenge."),
-                    actions=[ft.TextButton("Cancel", on_click=cancel),
-                             ft.TextButton("Delete", on_click=yes)])))
+    if posts:
+        grid = ft.GridView(
+            controls=[
+                ft.Container(
+                    border_radius=12,
+                    clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                    content=ft.Image(src=x["image_url"], fit=COVER),
+                )
+                for x in posts
+            ],
+            max_extent=160,
+            spacing=4,
+            run_spacing=4,
+            expand=True,
+        )
+    else:
+        grid = ft.Container(padding=16, content=ft.Text("Abhi koi post nahi.", color=MUTED))
 
-            header.append(ft.Row(controls=[
-                ft.TextButton("Log out", on_click=do_logout),
-                ft.TextButton("Account delete karen", on_click=ask_delete)]))
-
-        if posts:
-            grid = ft.GridView(
-                controls=[ft.Container(border_radius=12, clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-                                       content=ft.Image(src=x["image_url"], fit=COVER)) for x in posts],
-                max_extent=160, spacing=4, run_spacing=4, expand=True)
-        else:
-            grid = ft.Container(padding=16, content=ft.Text("Abhi koi post nahi.", color=MUTED))
-
-        set_body(ft.Column(
-            controls=[top_bar("@" + name, back=None if own_tab else back_to_tab),
-                      ft.C
+    set_body(
+        ft.Column(
+            controls=[
+                top_bar("@" + name, back=None if own_tab else back_to_tab),
+                ft.Container(
+                    padding=16,
+                    content=ft.Column(controls=header, spacing=8),
+                ),
+                ft.Divider(),
+                grid,
+            ],
+            spacing=0,
+            expand=True,
+        )
+      )
+      
