@@ -2,51 +2,6 @@ name: Build AGRAM
 on: workflow_dispatch
 
 jobs:
-  android:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Prepare files
-        run: |
-          if [ -d src ]; then cp -r src/. .; fi
-          ls -la
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - name: Make icon
-        run: |
-          pip install pillow
-          python make_icon.py
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: "17" }
-      - uses: subosito/flutter-action@v2
-        with: { channel: stable }
-      - run: pip install flet==1.1.2
-      - run: flet build apk --yes
-      - uses: actions/upload-artifact@v4
-        with: { name: agram-android, path: build/apk }
-
-  windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Prepare files
-        shell: bash
-        run: |
-          if [ -d src ]; then cp -r src/. .; fi
-          ls -la
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - name: Make icon
-        shell: bash
-        run: |
-          pip install pillow
-          python make_icon.py
-      - uses: subosito/flutter-action@v2
-        with: { channel: stable }
-      - run: pip install flet==1.1.2
-      - run: flet build windows --yes
-      - uses: actions/upload-artifact@v4
-        with: { name: agram-windows, path: build/windows }
   linux:
     runs-on: ubuntu-latest
     steps:
@@ -65,7 +20,7 @@ jobs:
         run: pip install flet
 
       - name: Build Linux
-        run: flet build linux --yes
+        run: flet build linux --yes --module-name src.main
 
       - uses: actions/upload-artifact@v4
         with:
