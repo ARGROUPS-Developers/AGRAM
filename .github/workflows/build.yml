@@ -47,3 +47,27 @@ jobs:
       - run: flet build windows --yes
       - uses: actions/upload-artifact@v4
         with: { name: agram-windows, path: build/windows }
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
+
+      - name: Install Flet
+        run: pip install flet
+
+      - name: Build Linux
+        run: flet build linux --yes
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AGRAM-Linux
+          path: build/linux
